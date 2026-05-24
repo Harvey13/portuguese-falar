@@ -1,0 +1,81 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dépendances
+node_modules/
+
+# Next.js
+.next/
+out/
+next*/
+next
+.cache/
+
+# Builds variés (dev/prod)
+dist*/
+dist
+dist-ssr
+dist-harvey
+dist-pignada
+dist-local
+dist-felix
+build_output
+dev-dist
+*.local
+
+# Electron
+dist_electron/
+**/dist_electron/**
+builder-debug.yml
+win-unpacked/
+**/win-unpacked/**
+*.exe
+*.asar
+/release/
+dist_electron/*
+
+# Environnement
+.env*
+!.env.example
+
+# Éditeurs / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?*
+
+# Temporaires / sauvegardes
+*.tmp
+*.temp
+*.bak
+*.old
+*.copy
+*copy*
+*backup*
+
+# Projets locaux spécifiques
+.netlify/
+.vercel/
+
+# Dossiers / fichiers locaux divers
+/Recup Photos/vignettes
+/Recup Photos/Pétanque Pignada d_Ornon
+/public/vignettes
+/release/*
+
+# Fichiers de config/lock inutiles en prod
+bun.lock
+bunfig.toml
+wrangler.jsonc
+
