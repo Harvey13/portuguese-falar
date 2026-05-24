@@ -90,8 +90,7 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
     return debugErrorResponse(capturedError);
   }
 
-  // Temporary forced debug to unblock Netlify runtime diagnosis.
-  return debugErrorResponse(capturedError);
+  return brandedErrorResponse();
 }
 
 export default {
@@ -105,8 +104,7 @@ export default {
       if (process.env.SSR_DEBUG_ERRORS === "1") {
         return debugErrorResponse(error);
       }
-      // Temporary forced debug to unblock Netlify runtime diagnosis.
-      return debugErrorResponse(error);
+      return brandedErrorResponse();
     }
   },
 };
