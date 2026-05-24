@@ -3,6 +3,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
+const SSR_WRAPPER_VERSION = "2026-05-24a";
+
 let serverEntrypointPromise;
 
 function resolveServerEntrypoint() {
@@ -69,6 +71,7 @@ async function toNetlifyResponse(response) {
   const arrayBuffer = await response.arrayBuffer();
   const bodyBuffer = Buffer.from(arrayBuffer);
   const { headers, multiValueHeaders } = splitHeaders(response);
+  headers["x-ssr-wrapper-version"] = SSR_WRAPPER_VERSION;
 
   return {
     statusCode: response.status,
