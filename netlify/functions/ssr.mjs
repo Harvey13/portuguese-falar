@@ -1,11 +1,29 @@
 import { Buffer } from "node:buffer";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 let serverEntrypointPromise;
 
+function resolveServerEntrypoint() {
+  const serverDistDir = join(process.cwd(), "dist", "server");
+  const candidates = ["index.js", "server.js"];
+
+  for (const candidate of candidates) {
+    const candidatePath = join(serverDistDir, candidate);
+    if (existsSync(candidatePath)) {
+      return candidatePath;
+    }
+  }
+
+  throw new Error(
+    `SSR entrypoint not found in ${serverDistDir}. Checked: ${candidates.join(", ")}`,
+  );
+}
+
 async function getServerEntrypoint() {
   if (!serverEntrypointPromise) {
-    const moduleUrl = pathToFileURL(`${process.cwd()}/dist/server/index.js`).href;
+    const moduleUrl = pathToFileURL(resolveServerEntrypoint()).href;
     serverEntrypointPromise = import(moduleUrl).then((mod) => mod.default ?? mod);
   }
   return serverEntrypointPromise;
