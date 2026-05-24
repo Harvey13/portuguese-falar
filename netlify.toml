@@ -7,8 +7,19 @@
   BUN_VERSION = "1.3.14"
 
 [functions]
+  external_node_modules = [
+    "@tanstack/router-core",
+    "@tanstack/history",
+    "@tanstack/react-router",
+    "h3-v2",
+    "seroval",
+    "rou3",
+    "srvx",
+  ]
   included_files = [
     "dist/server/**",
+    "node_modules/@tanstack/**",
+    "node_modules/seroval/**",
     "node_modules/h3-v2/**",
     "node_modules/rou3/**",
     "node_modules/srvx/**",
