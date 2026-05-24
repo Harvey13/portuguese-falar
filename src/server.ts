@@ -25,6 +25,19 @@ function brandedErrorResponse(): Response {
   });
 }
 
+function debugErrorResponse(error: unknown): Response {
+  const details =
+    error instanceof Error ? `${error.name}: ${error.message}\n${error.stack ?? ""}` : String(error);
+
+  return new Response(
+    `${renderErrorPage()}\n<!-- SSR_DEBUG\n${details}\n-->`,
+    {
+      status: 500,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    },
+  );
+}
+
 function isCatastrophicSsrErrorBody(body: string, responseStatus: number): boolean {
   let payload: unknown;
   try {
@@ -74,6 +87,9 @@ export default {
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
+      if (process.env.SSR_DEBUG_ERRORS === "1") {
+        return debugErrorResponse(error);
+      }
       return brandedErrorResponse();
     }
   },
