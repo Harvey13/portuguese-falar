@@ -19,21 +19,29 @@ async function getServerEntry(): Promise<ServerEntry> {
 }
 
 function brandedErrorResponse(): Response {
+  const errorId = `ssr-${Date.now().toString(36)}`;
   return new Response(renderErrorPage(), {
     status: 500,
-    headers: { "content-type": "text/html; charset=utf-8" },
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "x-ssr-error-id": errorId,
+    },
   });
 }
 
 function debugErrorResponse(error: unknown): Response {
+  const errorId = `ssr-${Date.now().toString(36)}`;
   const details =
     error instanceof Error ? `${error.name}: ${error.message}\n${error.stack ?? ""}` : String(error);
 
   return new Response(
-    `${renderErrorPage()}\n<!-- SSR_DEBUG\n${details}\n-->`,
+    `${renderErrorPage()}\n<!-- SSR_ERROR_ID ${errorId} -->\n<!-- SSR_DEBUG\n${details}\n-->`,
     {
       status: 500,
-      headers: { "content-type": "text/html; charset=utf-8" },
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "x-ssr-error-id": errorId,
+      },
     },
   );
 }
@@ -82,7 +90,8 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
     return debugErrorResponse(capturedError);
   }
 
-  return brandedErrorResponse();
+  // Temporary forced debug to unblock Netlify runtime diagnosis.
+  return debugErrorResponse(capturedError);
 }
 
 export default {
@@ -96,7 +105,8 @@ export default {
       if (process.env.SSR_DEBUG_ERRORS === "1") {
         return debugErrorResponse(error);
       }
-      return brandedErrorResponse();
+      // Temporary forced debug to unblock Netlify runtime diagnosis.
+      return debugErrorResponse(error);
     }
   },
 };
