@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const SSR_WRAPPER_VERSION = "2026-05-24a";
+const SSR_WRAPPER_VERSION = "2026-05-24b";
 
 let serverEntrypointPromise;
 

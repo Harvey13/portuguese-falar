@@ -86,11 +86,7 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   const capturedError = consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`);
   console.error(capturedError);
 
-  if (process.env.SSR_DEBUG_ERRORS === "1") {
-    return debugErrorResponse(capturedError);
-  }
-
-  return brandedErrorResponse();
+  return debugErrorResponse(capturedError);
 }
 
 export default {
@@ -101,10 +97,7 @@ export default {
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);
-      if (process.env.SSR_DEBUG_ERRORS === "1") {
-        return debugErrorResponse(error);
-      }
-      return brandedErrorResponse();
+      return debugErrorResponse(error);
     }
   },
 };
