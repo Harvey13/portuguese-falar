@@ -279,9 +279,8 @@ export function PracticeCard() {
             Importer
             <input
               type="file"
-              accept=".json,.txt,.csv"
+              accept="application/json,.json,text/plain,.txt,text/csv,.csv"
               multiple
-              webkitdirectory=""
               className="hidden"
               onChange={(e) => {
                 const files = Array.from(e.target.files ?? []);
