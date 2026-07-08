@@ -1,16 +1,87 @@
-export type Sentence = { fr: string; pt: string };
+export type Sentence = { fr: string; pt: string; theme?: string };
+export type ThemeSentences = { theme: string; sentences: Sentence[] };
 
-export const defaultSentences: Sentence[] = [
-  { fr: "Je suis très heureux de te revoir.", pt: "Estou muito feliz de te ver de novo." },
-  { fr: "Ça fait très longtemps qu'on ne s'est pas vus.", pt: "Faz muito tempo que a gente não se encontra." },
-  { fr: "Je m'appelle Elvée.", pt: "O meu nome é Elvée." },
-  { fr: "Je suis très heureux d'être ici avec toi.", pt: "Eu estou muito feliz em estar aqui com você." },
-  { fr: "J'espère qu'on aura un excellent déjeuner ensemble.", pt: "Espero que a gente tenha um ótimo almoço juntos." },
-  { fr: "Comment vas-tu vraiment ?", pt: "Como você está de verdade?" },
-  { fr: "Je suis très heureux d'être ici avec vous.", pt: "Estou muito feliz de estar aqui com você." },
-  { fr: "J'adore être avec toi.", pt: "Adoro estar com você." },
-  { fr: "Tu es très spécial pour moi.", pt: "Você é muito especial pra mim." },
+function parseSentenceList(data: unknown): Sentence[] {
+  if (!Array.isArray(data)) throw new Error("Le JSON doit contenir un tableau de phrases");
+  return data
+    .filter((d): d is Record<string, unknown> => Boolean(d) && typeof d === "object")
+    .filter((d) => typeof d.fr === "string" && typeof d.pt === "string")
+    .map((d) => ({ fr: d.fr.trim(), pt: d.pt.trim() }));
+}
+
+function parseTextSentences(text: string): Sentence[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .map((line) => {
+      const sep = line.includes("|") ? "|" : line.includes("\t") ? "\t" : ";";
+      const [fr, pt] = line.split(sep).map((s) => s?.trim() ?? "");
+      if (!fr || !pt) throw new Error(`Ligne invalide: ${line}`);
+      return { fr, pt };
+    });
+}
+
+function toThemeName(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+export function flattenThemeSentences(themes: ThemeSentences[]): Sentence[] {
+  return themes.flatMap(({ theme, sentences }) =>
+    sentences.map((sentence) => ({ ...sentence, theme: sentence.theme ?? theme }))
+  );
+}
+
+export function mergeThemeSentences(themes: ThemeSentences[]): ThemeSentences[] {
+  const map = new Map<string, ThemeSentences>();
+  for (const themeGroup of themes) {
+    const key = themeGroup.theme.trim() || "Général";
+    const existing = map.get(key);
+    if (existing) {
+      existing.sentences.push(...themeGroup.sentences);
+    } else {
+      map.set(key, { theme: key, sentences: [...themeGroup.sentences] });
+    }
+  }
+  return Array.from(map.values()).filter((group) => group.sentences.length > 0);
+}
+
+export const defaultThemes: ThemeSentences[] = [
+  {
+    theme: "Salutations",
+    sentences: [
+      { fr: "Bonjour, comment ça va ?", pt: "Olá, como você está?" },
+      { fr: "Je suis ravi de te voir.", pt: "Estou muito feliz em te ver." },
+      { fr: "Quel beau jour aujourd'hui !", pt: "Que dia bonito hoje!" },
+    ],
+  },
+  {
+    theme: "Voyage",
+    sentences: [
+      { fr: "Où se trouve la gare ?", pt: "Onde fica a estação de trem?" },
+      { fr: "Je voudrais réserver une chambre.", pt: "Eu queria reservar um quarto." },
+      { fr: "Quand part le prochain bus ?", pt: "Quando sai o próximo ônibus?" },
+    ],
+  },
+  {
+    theme: "Cuisine",
+    sentences: [
+      { fr: "Je voudrais un café, s'il vous plaît.", pt: "Eu queria um café, por favor." },
+      { fr: "Cet endroit sert de très bons plats.", pt: "Este lugar serve pratos muito bons." },
+      { fr: "Avez-vous des options végétariennes ?", pt: "Vocês têm opções vegetarianas?" },
+    ],
+  },
+  {
+    theme: "Shopping",
+    sentences: [
+      { fr: "Combien coûte cet article ?", pt: "Quanto custa este item?" },
+      { fr: "Je cherche une taille plus grande.", pt: "Estou procurando um tamanho maior." },
+      { fr: "Pouvez-vous m'aider à trouver ceci ?", pt: "Você pode me ajudar a encontrar isso?" },
+    ],
+  },
 ];
+
+export const defaultSentences: Sentence[] = flattenThemeSentences(defaultThemes);
 
 export function normalize(s: string): string {
   return s
@@ -62,24 +133,58 @@ export function diffWords(expected: string, actual: string): {
   return { expected: expectedDiff, actual: actualDiff, score };
 }
 
-// Parse uploaded sentences file. Supports JSON array [{fr, pt}] or lines "fr | pt".
-export function parseSentencesFile(text: string): Sentence[] {
+export function parseThemeSentencesFile(text: string, fallbackTheme = "Général"): ThemeSentences[] {
   const trimmed = text.trim();
+  if (!trimmed) return [];
+
   if (trimmed.startsWith("[")) {
     const data = JSON.parse(trimmed);
-    if (!Array.isArray(data)) throw new Error("JSON must be an array");
-    return data
-      .filter((d) => d && typeof d.fr === "string" && typeof d.pt === "string")
-      .map((d) => ({ fr: d.fr.trim(), pt: d.pt.trim() }));
+    if (Array.isArray(data)) {
+      if (data.every((item) => item && typeof item === "object" && Array.isArray((item as Record<string, unknown>).sentences))) {
+        return data
+          .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+          .map((item) => ({
+            theme: toThemeName(item.theme, fallbackTheme),
+            sentences: parseSentenceList(item.sentences),
+          }))
+          .filter((group) => group.sentences.length > 0);
+      }
+      return [{ theme: fallbackTheme, sentences: parseSentenceList(data) }].filter((group) => group.sentences.length > 0);
+    }
+
+    if (data && typeof data === "object") {
+      const maybeThemes = Array.isArray((data as Record<string, unknown>).themes)
+        ? ((data as Record<string, unknown>).themes as unknown[])
+        : [];
+      if (maybeThemes.length) {
+        return maybeThemes
+          .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+          .map((item) => ({
+            theme: toThemeName(item.theme, fallbackTheme),
+            sentences: parseSentenceList(item.sentences),
+          }))
+          .filter((group) => group.sentences.length > 0);
+      }
+      return [{
+        theme: toThemeName((data as Record<string, unknown>).theme, fallbackTheme),
+        sentences: parseSentenceList((data as Record<string, unknown>).sentences),
+      }].filter((group) => group.sentences.length > 0);
+    }
+
+    throw new Error("Le JSON n'est pas au bon format");
   }
-  return trimmed
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith("#"))
-    .map((l) => {
-      const sep = l.includes("|") ? "|" : l.includes("\t") ? "\t" : ";";
-      const [fr, pt] = l.split(sep).map((s) => s?.trim() ?? "");
-      if (!fr || !pt) throw new Error(`Ligne invalide: ${l}`);
-      return { fr, pt };
-    });
+
+  return [{ theme: fallbackTheme, sentences: parseTextSentences(trimmed) }].filter((group) => group.sentences.length > 0);
+}
+
+export async function loadThemeSentencesFromFiles(files: File[]): Promise<ThemeSentences[]> {
+  const parsedThemes = await Promise.all(
+    files.map(async (file) => {
+      const text = await file.text();
+      const fallbackTheme = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ");
+      return parseThemeSentencesFile(text, fallbackTheme || "Général");
+    })
+  );
+
+  return mergeThemeSentences(parsedThemes.flat());
 }

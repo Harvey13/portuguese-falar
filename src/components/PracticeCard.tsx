@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Mic, Square, Volume2, Shuffle, Upload, Check, Eye, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  defaultSentences,
+  defaultThemes,
   diffWords,
-  parseSentencesFile,
+  flattenThemeSentences,
+  loadThemeSentencesFromFiles,
+  parseThemeSentencesFile,
   type Sentence,
+  type ThemeSentences,
   type WordDiff,
 } from "@/lib/sentences";
 import { createRecognizer, isSpeechSupported, speak } from "@/lib/speech";
@@ -64,7 +67,7 @@ function DiffLine({ words }: { words: WordDiff[] }) {
 }
 
 export function PracticeCard() {
-  const [sentences, setSentences] = useState<Sentence[]>(defaultSentences);
+  const [themeGroups, setThemeGroups] = useState<ThemeSentences[]>(defaultThemes);
   const [idx, setIdx] = useState(0);
   const [transcript, setTranscript] = useState("");
   const [listening, setListening] = useState(false);
@@ -75,6 +78,7 @@ export function PracticeCard() {
   const [supported, setSupported] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  const sentences = useMemo(() => flattenThemeSentences(themeGroups), [themeGroups]);
   const current = sentences[idx];
 
   useEffect(() => {
@@ -130,16 +134,19 @@ export function PracticeCard() {
 
   const validate = () => setValidated(true);
 
-  const onFile = async (file: File) => {
+  const onFile = async (files: File[]) => {
     try {
-      const text = await file.text();
-      const parsed = parseSentencesFile(text);
+      const selectedFiles = files.filter((file) => [".json", ".txt", ".csv"].some((ext) => file.name.toLowerCase().endsWith(ext)));
+      if (!selectedFiles.length) throw new Error("Aucun fichier JSON, TXT ou CSV sélectionné");
+
+      const parsed = await loadThemeSentencesFromFiles(selectedFiles);
       if (!parsed.length) throw new Error("Aucune phrase trouvée");
-      setSentences(parsed);
+
+      setThemeGroups(parsed);
       setIdx(0);
       setTranscript("");
       setValidated(false);
-      toast.success(`${parsed.length} phrases chargées`);
+      toast.success(`${parsed.reduce((sum, group) => sum + group.sentences.length, 0)} phrases chargées depuis ${parsed.length} thème(s)`);
     } catch (e: any) {
       toast.error(`Import impossible: ${e.message ?? e}`);
     }
@@ -149,7 +156,7 @@ export function PracticeCard() {
 
   const handleExport = () => {
     try {
-      const json = JSON.stringify(sentences, null, 2);
+      const json = JSON.stringify(themeGroups, null, 2);
       const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -179,7 +186,12 @@ export function PracticeCard() {
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">Phrase en français</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Phrase en français</p>
+            <Badge variant="outline" className="font-medium">
+              {current.theme ?? "Général"}
+            </Badge>
+          </div>
           <h2 className="text-2xl md:text-3xl font-medium leading-snug text-foreground">
             {current.fr}
           </h2>
@@ -268,10 +280,12 @@ export function PracticeCard() {
             <input
               type="file"
               accept=".json,.txt,.csv"
+              multiple
+              webkitdirectory=""
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onFile(f);
+                const files = Array.from(e.target.files ?? []);
+                if (files.length) onFile(files);
                 e.target.value = "";
               }}
             />
@@ -284,7 +298,7 @@ export function PracticeCard() {
             Exporter JSON
           </button>
         </div>
-        <span className="text-xs">Format: <code>JSON [{`{fr, pt}`}]</code> ou <code>fr | pt</code> par ligne</span>
+        <span className="text-xs">Format: <code>JSON par thème</code> ou <code>fr | pt</code> par ligne. Vous pouvez aussi sélectionner un dossier contenant plusieurs fichiers JSON.</span>
       </div>
     </div>
   );
